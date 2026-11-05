@@ -1,8 +1,10 @@
 import { Route, Routes } from "react-router";
 import { Layout } from "./componentes/Layout";
 import { RotaProtegida } from "./componentes/RotaProtegida";
-import { Inicio } from "./paginas/Inicio";
+import { DetalheChamado } from "./paginas/DetalheChamado";
+import { ListaChamados } from "./paginas/ListaChamados";
 import { Login } from "./paginas/Login";
+import { NovoChamado } from "./paginas/NovoChamado";
 import { Registro } from "./paginas/Registro";
 
 export default function App() {
@@ -13,7 +15,9 @@ export default function App() {
 
       <Route element={<RotaProtegida />}>
         <Route element={<Layout />}>
-          <Route path="/" element={<Inicio />} />
+          <Route path="/" element={<ListaChamados />} />
+          <Route path="/chamados/novo" element={<NovoChamado />} />
+          <Route path="/chamados/:id" element={<DetalheChamado />} />
         </Route>
       </Route>
     </Routes>
