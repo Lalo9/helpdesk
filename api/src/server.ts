@@ -1,7 +1,8 @@
-import "dotenv/config";
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
+import { config } from "./config";
 import { pool } from "./db";
+import { rotasAuth } from "./rotas/auth";
 
 const app = express();
 app.use(cors());
@@ -26,8 +27,14 @@ app.get("/status", async (_req, res) => {
   }
 });
 
-const porta = Number(process.env.PORT) || 3000;
+app.use("/auth", rotasAuth);
 
-app.listen(porta, () => {
-  console.log(`API rodando em http://localhost:${porta}`);
+// Tratador de erros: qualquer erro inesperado cai aqui
+app.use((erro: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(erro);
+  res.status(500).json({ erro: "Erro interno do servidor" });
+});
+
+app.listen(config.porta, () => {
+  console.log(`API rodando em http://localhost:${config.porta}`);
 });
