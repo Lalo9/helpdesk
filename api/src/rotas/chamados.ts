@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { pool } from "../db";
+import { comTransacao, pool } from "../db";
 import { autenticar } from "../middlewares/autenticacao";
 import { exigirPerfil } from "../middlewares/perfil";
 
@@ -255,4 +255,108 @@ rotasChamados.patch("/:id", exigirPerfil("atendente"), async (req, res) => {
   );
 
   res.json(await buscarChamado(id));
+});
+// ---------- Comentários ----------
+
+const novoComentarioSchema = z.object({
+  texto: z
+    .string()
+    .trim()
+    .min(1, "O comentário não pode ser vazio")
+    .max(2000, "O comentário pode ter no máximo 2000 caracteres"),
+});
+
+const SELECT_COMENTARIO = `
+  SELECT m.id, m.texto, m.criado_em AS "criadoEm",
+         m.autor_id AS "autorId", u.nome AS autor, u.perfil AS "autorPerfil"
+    FROM comentarios m
+    JOIN usuarios u ON u.id = m.autor_id
+`;
+
+// Cliente só enxerga os próprios chamados; atendente enxerga todos.
+function usuarioPodeVer(
+  chamado: { clienteId: number },
+  usuario: { id: number; perfil: string }
+): boolean {
+  return usuario.perfil !== "cliente" || chamado.clienteId === usuario.id;
+}
+
+// Listar os comentários de um chamado
+rotasChamados.get("/:id/comentarios", async (req, res) => {
+  const id = lerId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ erro: "Id inválido" });
+    return;
+  }
+
+  const chamado = await buscarChamado(id);
+  if (!chamado || !usuarioPodeVer(chamado, res.locals.usuario)) {
+    res.status(404).json({ erro: "Chamado não encontrado" });
+    return;
+  }
+
+  const { rows } = await pool.query(
+    `${SELECT_COMENTARIO}
+      WHERE m.chamado_id = $1
+      ORDER BY m.criado_em ASC, m.id ASC`,
+    [id]
+  );
+
+  res.json(rows);
+});
+
+// Adicionar um comentário
+rotasChamados.post("/:id/comentarios", async (req, res) => {
+  const id = lerId(req.params.id);
+  if (id === null) {
+    res.status(400).json({ erro: "Id inválido" });
+    return;
+  }
+
+  const resultado = novoComentarioSchema.safeParse(req.body);
+  if (!resultado.success) {
+    res.status(400).json(respostaInvalida(resultado.error));
+    return;
+  }
+
+  const usuario = res.locals.usuario;
+  const chamado = await buscarChamado(id);
+
+  if (!chamado || !usuarioPodeVer(chamado, usuario)) {
+    res.status(404).json({ erro: "Chamado não encontrado" });
+    return;
+  }
+  if (chamado.status === "fechado") {
+    res.status(409).json({ erro: "Não é possível comentar em um chamado fechado" });
+    return;
+  }
+
+  const idComentario = await comTransacao(async (conexao) => {
+    const { rows } = await conexao.query(
+      `INSERT INTO comentarios (chamado_id, autor_id, texto)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [id, usuario.id, resultado.data.texto]
+    );
+
+    await conexao.query(
+      `UPDATE chamados
+          SET atualizado_em = NOW(),
+              status = CASE
+                         WHEN status = 'resolvido' AND $2::text = 'cliente'
+                         THEN 'em_andamento'
+                         ELSE status
+                       END
+        WHERE id = $1`,
+      [id, usuario.perfil]
+    );
+
+    return rows[0].id as number;
+  });
+
+  const { rows } = await pool.query(`${SELECT_COMENTARIO} WHERE m.id = $1`, [
+    idComentario,
+  ]);
+
+  res.status(201).json(rows[0]);
 });

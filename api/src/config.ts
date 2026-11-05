@@ -2,8 +2,10 @@ import "dotenv/config";
 
 const jwtSecret = process.env.JWT_SECRET;
 
-if (!jwtSecret || jwtSecret.length < 32) {
-  throw new Error("Defina JWT_SECRET no arquivo .env (mínimo de 32 caracteres)");
+if (!jwtSecret || jwtSecret.length < 32 || jwtSecret.startsWith("troque-por")) {
+  throw new Error(
+    "Defina um JWT_SECRET próprio no arquivo .env (mínimo de 32 caracteres)"
+  );
 }
 
 export const config = {
