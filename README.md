@@ -52,7 +52,7 @@ helpdesk/
 ### 1. Clone o repositório
 
 ```
-git clone https://github.com/SEU_USUARIO/helpdesk.git
+git clone https://github.com/Lalo9/helpdesk.git
 cd helpdesk
 ```
 
