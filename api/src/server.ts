@@ -3,10 +3,14 @@ import cors from "cors";
 import { config } from "./config";
 import { pool } from "./db";
 import { rotasAuth } from "./rotas/auth";
+import { rotasCategorias } from "./rotas/categorias";
+import { rotasChamados } from "./rotas/chamados";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use("/categorias", rotasCategorias);
+app.use("/chamados", rotasChamados);
 
 app.get("/status", async (_req, res) => {
   try {
